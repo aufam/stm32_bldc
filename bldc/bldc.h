@@ -54,7 +54,13 @@ namespace Project::bldc {
         /// @param args
         ///     - .values reference to values buffer
         ///     - .uart reference to periph::CAN object
-        constexpr BLDC(ConstructorCANArgs args) : values(args.values), can(&args.can), uart(nullptr) {}
+        constexpr BLDC(ConstructorCANArgs args) 
+            : values(args.values)
+            , can(&args.can)
+            #ifdef HAL_UART_MODULE_ENABLED
+            , uart(nullptr) 
+            #endif
+            {}
         #endif
 
         #ifdef HAL_UART_MODULE_ENABLED
@@ -64,7 +70,12 @@ namespace Project::bldc {
         /// @param args
         ///     - .values reference to values buffer
         ///     - .uart reference to periph::UART object
-        constexpr BLDC(ConstructorUARTArgs args) : values(args.values), can(nullptr), uart(&args.uart) {}
+        constexpr BLDC(ConstructorUARTArgs args) 
+            : values(args.values)
+            #ifdef HAL_CAN_MODULE_ENABLED
+            , can(nullptr)
+            #endif
+            , uart(&args.uart) {}
         #endif
 
         /// init CAN and/or UART mode
