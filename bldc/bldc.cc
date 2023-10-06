@@ -61,32 +61,44 @@ fun static cast_back2(const uint8_t* buf) {
 
 fun BLDC::init() -> void {
     id = 255; // id is not set
+    #ifdef HAL_UART_MODULE_ENABLED
     if (uart) {
         uart->setBaudRate(115200);
         uart->init();
         uart->rxCallbackList.push(etl::bind<&BLDC::uartRxCallback>(this));
     }
+    #endif
+    #ifdef HAL_CAN_MODULE_ENABLED
     if (can) {
         can->init({.idType=periph::CAN::ID_TYPE_EXT});
         can->rxCallbackList.push(etl::bind<&BLDC::canRxCallback>(this));
     }
+    #endif
 }
 
 fun BLDC::deinit() -> void {
+    #ifdef HAL_UART_MODULE_ENABLED
     if (uart) {
         uart->rxCallbackList.pop(etl::bind<&BLDC::uartRxCallback>(this));
         uart->deinit();
     }
+    #endif
+    #ifdef HAL_CAN_MODULE_ENABLED
     if (can) {
         can->rxCallbackList.pop(etl::bind<&BLDC::canRxCallback>(this));
         can->deinit();
     }
+    #endif
 }
 
 fun BLDC::uartTransmit(const uint8_t* data, size_t len, uint8_t packet) -> void {
+    #ifdef HAL_UART_MODULE_ENABLED
     if (!uart) return;
     val n = encode(txBuffer.data(), data, len, packet);
     uart->transmit(txBuffer.data(), n);
+    #else
+    UNUSED(data); UNUSED(len); UNUSED(packet);
+    #endif
 }
 
 fun BLDC::uartTransmit(const char* text) -> void {
@@ -94,10 +106,14 @@ fun BLDC::uartTransmit(const char* text) -> void {
 }
 
 fun BLDC::canTransmit(const uint8_t* data, size_t len, uint8_t packet) -> void {
+    #ifdef HAL_CAN_MODULE_ENABLED
     if (!can) return;
     can->setIdType(periph::CAN::ID_TYPE_EXT);
     can->setId(id | packet << 8);
     can->transmit(data, len);
+    #else
+    UNUSED(data); UNUSED(len); UNUSED(packet);
+    #endif
 }
 
 fun BLDC::encode(uint8_t* buffer, const uint8_t* data, size_t len, uint8_t packet) -> size_t {
@@ -170,6 +186,7 @@ fun BLDC::setSpeed(float value) -> void {
     canTransmit(data.data(), data.len(), CAN_PACKET_SET_RPM);
 }
 
+#ifdef HAL_UART_MODULE_ENABLED
 fun BLDC::uartRxCallback(const uint8_t* data, size_t len) -> void {
     uint8_t packet;
     var buf = decode(data, len, packet);
@@ -253,7 +270,9 @@ fun BLDC::uartRxCallback(const uint8_t* data, size_t len) -> void {
         buf ++;
     }
 }
+#endif
 
+#ifdef HAL_CAN_MODULE_ENABLED
 fun BLDC::canRxCallback(periph::CAN::Message& msg) -> void {
     if (msg.IDE != CAN_ID_EXT) 
         return;
@@ -284,4 +303,5 @@ fun BLDC::canRxCallback(periph::CAN::Message& msg) -> void {
             break;
     }
 }
+#endif
 

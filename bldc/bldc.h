@@ -38,25 +38,34 @@ namespace Project::bldc {
     public:
         using PacketProcess = etl::Function<void(uint8_t packet, const uint8_t* data, size_t len), void*>;
 
+        #ifdef HAL_CAN_MODULE_ENABLED
         periph::CAN* can;
+        #endif
+        #ifdef HAL_UART_MODULE_ENABLED
         periph::UART* uart;
+        #endif
         etl::Array<uint8_t, 64> txBuffer = {};
         PacketProcess packetProcess = {};
 
+        #ifdef HAL_CAN_MODULE_ENABLED
         struct ConstructorCANArgs { BLDCValues& values; periph::CAN& can; };
-        struct ConstructorUARTArgs { BLDCValues& values; periph::UART& uart; };
 
         /// construct CAN mode
         /// @param args
         ///     - .values reference to values buffer
         ///     - .uart reference to periph::CAN object
         constexpr BLDC(ConstructorCANArgs args) : values(args.values), can(&args.can), uart(nullptr) {}
+        #endif
+
+        #ifdef HAL_UART_MODULE_ENABLED
+        struct ConstructorUARTArgs { BLDCValues& values; periph::UART& uart; };
 
         /// construct UART mode
         /// @param args
         ///     - .values reference to values buffer
         ///     - .uart reference to periph::UART object
         constexpr BLDC(ConstructorUARTArgs args) : values(args.values), can(nullptr), uart(&args.uart) {}
+        #endif
 
         /// init CAN and/or UART mode
         void init();
@@ -153,8 +162,12 @@ namespace Project::bldc {
         void setCurrentBrake(float value);
         void setSpeed(float value);
 
+        #ifdef HAL_UART_MODULE_ENABLED
         void uartRxCallback(const uint8_t* data, size_t len);
+        #endif
+        #ifdef HAL_CAN_MODULE_ENABLED
         void canRxCallback(periph::CAN::Message& msg);
+        #endif
     };
 }
 
