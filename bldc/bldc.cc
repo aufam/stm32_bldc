@@ -63,15 +63,21 @@ fun BLDC::init() -> void {
     id = 255; // id is not set
     #ifdef HAL_UART_MODULE_ENABLED
     if (uart) {
-        uart->setBaudRate(115200);
-        uart->init();
-        uart->rxCallbackList.push(etl::bind<&BLDC::uartRxCallback>(this));
+        uart->init({
+            .baudrate=115200,
+            .rxCallback=etl::bind<&BLDC::uartRxCallback>(this),
+        });
     }
     #endif
     #ifdef HAL_CAN_MODULE_ENABLED
     if (can) {
-        can->init({.idType=periph::CAN::ID_TYPE_EXT});
-        can->rxCallbackList.push(etl::bind<&BLDC::canRxCallback>(this));
+        can->init({
+            .idType=CAN_ID_EXT, 
+            .idTx=uint32_t(id), 
+            .filter=0, 
+            .mask=0,
+            .rxCallback=etl::bind<&BLDC::canRxCallback>(this),
+        });
     }
     #endif
 }
@@ -79,14 +85,12 @@ fun BLDC::init() -> void {
 fun BLDC::deinit() -> void {
     #ifdef HAL_UART_MODULE_ENABLED
     if (uart) {
-        uart->rxCallbackList.pop(etl::bind<&BLDC::uartRxCallback>(this));
-        uart->deinit();
+        uart->deinit({.rxCallback=etl::bind<&BLDC::uartRxCallback>(this)});
     }
     #endif
     #ifdef HAL_CAN_MODULE_ENABLED
     if (can) {
-        can->rxCallbackList.pop(etl::bind<&BLDC::canRxCallback>(this));
-        can->deinit();
+        can->deinit({.rxCallback=etl::bind<&BLDC::canRxCallback>(this)});
     }
     #endif
 }
@@ -108,9 +112,7 @@ fun BLDC::uartTransmit(const char* text) -> void {
 fun BLDC::canTransmit(const uint8_t* data, size_t len, uint8_t packet) -> void {
     #ifdef HAL_CAN_MODULE_ENABLED
     if (!can) return;
-    can->setIdType(periph::CAN::ID_TYPE_EXT);
-    can->setId(id | packet << 8);
-    can->transmit(data, len);
+    can->transmit({.idType=CAN_ID_EXT, .idTx=uint32_t(id | packet << 8), .buf=data, .len=uint16_t(len)});
     #else
     UNUSED(data); UNUSED(len); UNUSED(packet);
     #endif
