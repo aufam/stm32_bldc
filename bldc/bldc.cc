@@ -4,7 +4,6 @@
 #include "etl/bit.h"
 #include "etl/keywords.h"
 
-using namespace Project;
 using namespace Project::bldc;
 
 val static crc16_tab = etl::array<uint16_t>(
