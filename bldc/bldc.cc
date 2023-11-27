@@ -189,86 +189,103 @@ fun BLDC::setSpeed(float value) -> void {
 
 #ifdef HAL_UART_MODULE_ENABLED
 fun BLDC::uartRxCallback(const uint8_t* data, size_t len) -> void {
-    uint8_t packet;
-    var buf = decode(data, len, packet);
+    for (var begin = data, end = data + len; begin < end;) {
+        val totalLen = begin[1] + 5; // predicted frame length, including start byte, len byte, crc (2 bytes), stop byte
+        size_t dataLen = totalLen;  
+        uint8_t packet;
 
+        val decoded = begin + totalLen > end 
+                    ? null // data length is too big 
+                    : decode(begin, dataLen, packet);
+
+        if (not decoded) {
+            ++begin;
+            continue; // decode fail, try next byte
+        }
+
+        uartProcess(decoded, dataLen, packet);
+        begin += totalLen; // decode success, try next frame
+    }
+}
+
+fun BLDC::uartProcess(const uint8_t* decoded, size_t len, uint8_t packet) -> void {
     if (packet != COMM_GET_VALUES and packet != COMM_GET_VALUES_SELECTIVE) {
-        packetProcess(packet, buf, len);
+        packetProcess(decoded, len, packet);
         return;
     }
 
     var mask = 0xFFFFFFFF;
     if (packet == COMM_GET_VALUES_SELECTIVE) {
-        mask = cast_back4(buf);
-        buf += 4;
+        mask = cast_back4(decoded);
+        decoded += 4;
     }
 
     if (mask & 1 << 0) {
-        values.mosfetTemperature = etl::safe_truediv<float>(cast_back2(buf), 10);
-        buf += 2;
+        values.mosfetTemperature = etl::safe_truediv<float>(cast_back2(decoded), 10);
+        decoded += 2;
     } if (mask & 1 << 1) {
         // motor temperature
-        buf += 2;
+        decoded += 2;
     } if (mask & 1 << 2) {
-        values.current = etl::safe_truediv<float>(cast_back4(buf), 100);
-        buf += 4;
+        values.current = etl::safe_truediv<float>(cast_back4(decoded), 100);
+        decoded += 4;
     } if (mask & 1 << 3) {
-        values.currentIn = etl::safe_truediv<float>(cast_back4(buf), 100);
-        buf += 4;
+        values.currentIn = etl::safe_truediv<float>(cast_back4(decoded), 100);
+        decoded += 4;
     } if (mask & 1 << 4) {
         // avg id
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 5) {
         // avg iq
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 6) {
-        values.dutyCycle = etl::safe_truediv<float>(cast_back2(buf), 1000);
-        buf += 2;
+        values.dutyCycle = etl::safe_truediv<float>(cast_back2(decoded), 1000);
+        decoded += 2;
     } if (mask & 1 << 7) {
-        values.speed = etl::safe_cast<float>(cast_back4(buf));
-        buf += 4;
+        values.speed = etl::safe_cast<float>(cast_back4(decoded));
+        decoded += 4;
     } if (mask & 1 << 8) {
-        values.voltageIn = etl::safe_truediv<float>(cast_back2(buf), 10);
-        buf += 2;
+        values.voltageIn = etl::safe_truediv<float>(cast_back2(decoded), 10);
+        decoded += 2;
     } if (mask & 1 << 9) {
         // ampere hours
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 10) {
         // ampere hours charged
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 11) {
         // watt hours
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 12) {
         // watt hours charged
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 13) {
-        values.position = cast_back4(buf);
-        buf += 4;
+        values.position = cast_back4(decoded);
+        decoded += 4;
     } if (mask & 1 << 14) {
         // tacho absolute
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 15) {
-        values.faultCode = MC_FAULT_CODE(*buf);
-        buf++;
+        values.faultCode = MC_FAULT_CODE(*decoded);
+        decoded++;
     } if (mask & 1 << 16) {
         // pid pos
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 17) {
-        values.id = *buf;
-        buf++;
+        values.id = *decoded;
+        decoded++;
     } if (mask & 1 << 18) {
         // mosfet 1, 2, 3 temperature
-        buf += 6;
+        decoded += 6;
     } if (mask & 1 << 19) {
         // avg vd
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 20) {
         // avg vq
-        buf += 4;
+        decoded += 4;
     } if (mask & 1 << 21) {
         // status timeout
-        buf ++;
+        decoded ++;
     }
 }
 #endif

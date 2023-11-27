@@ -36,7 +36,7 @@ class Project::bldc::BLDC {
     BLDCValues& values;
 
 public:
-    using PacketProcess = etl::Function<void(uint8_t packet, const uint8_t* data, size_t len), void*>;
+    using PacketProcess = etl::Function<void(const uint8_t* decoded, size_t len, uint8_t packet), void*>;
 
     #ifdef HAL_CAN_MODULE_ENABLED
     periph::CAN* can;
@@ -45,7 +45,7 @@ public:
     periph::UART* uart;
     #endif
     etl::Array<uint8_t, 64> txBuffer = {};
-    PacketProcess packetProcess = {};
+    PacketProcess packetProcess = {}; ///< additional user defined packet process
 
     #ifdef HAL_CAN_MODULE_ENABLED
     struct ConstructorCANArgs { BLDCValues& values; periph::CAN& can; };
@@ -175,6 +175,7 @@ private:
 
     #ifdef HAL_UART_MODULE_ENABLED
     void uartRxCallback(const uint8_t* data, size_t len);
+    void uartProcess(const uint8_t* decoded, size_t len, uint8_t packet);
     #endif
     #ifdef HAL_CAN_MODULE_ENABLED
     void canRxCallback(periph::CAN::Message& msg);
